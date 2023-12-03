@@ -1,0 +1,58 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Cdn {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  apiToken      String         @unique
+  name          String?
+  balancers     Balancer[]
+  middleDomains MiddleDomain[]
+  rootDomains   RootDomain[]
+}
+
+model MiddleDomain {
+  id           Int         @id @default(autoincrement())
+  name         String      @unique
+  isActive     Boolean     @default(true)
+  isSelected   Boolean     @default(false)
+  trafficLimit Float       @default(0)
+  traffic      Float       @default(0)
+  Balancer     Balancer?   @relation(fields: [balancerId], references: [id])
+  balancerId   Int?
+  Cdn          Cdn?        @relation(fields: [cdnId], references: [id])
+  cdnId        Int?
+  RootDomain   RootDomain?
+}
+
+model RootDomain {
+  id             Int           @id @default(autoincrement())
+  name           String
+  value          MiddleDomain? @relation(fields: [middleDomainId], references: [id])
+  subDomain      String
+  middleDomainId Int?          @unique
+  Balancer       Balancer?     @relation(fields: [balancerId], references: [id])
+  balancerId     Int?
+  Cdn            Cdn?          @relation(fields: [cdnId], references: [id])
+  cdnId          Int?
+}
+
+model Balancer {
+  id                        Int            @id @default(autoincrement())
+  name                      String         @unique
+  middleDomains             MiddleDomain[]
+  rootDomains               RootDomain[]
+  middleDomainTrafficLimit  Float
+  middleDomainDNSRecordName String
+  Cdn                       Cdn?           @relation(fields: [cdnId], references: [id])
+  cdnId                     Int?
+}
