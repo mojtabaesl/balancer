@@ -3,7 +3,5 @@ services:
     image: mysql
     env_file: .env
     restart: always
-    environment:
-      MYSQL_DATABASE: balancer
     ports:
       - 3306:3306

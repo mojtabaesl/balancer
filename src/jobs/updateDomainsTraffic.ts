@@ -1,6 +1,6 @@
 import { prisma } from "../prisma.js";
 import { domainService } from "../services/service.js";
-import { convertByteToGB } from "../utils.js";
+import { convertByteToGB, decrypt } from "../utils.js";
 
 export const updateDomainsTraffic = async () => {
   try {
@@ -9,10 +9,14 @@ export const updateDomainsTraffic = async () => {
     });
 
     await domains.forEach(async (domain) => {
+      if (!domain?.Cdn?.apiToken) return;
+
       const trafficReports = await domainService.getReports({
         domain: domain.name,
         params: { period: "7d" },
-        options: { headers: { Authorization: domain?.Cdn?.apiToken ?? "" } },
+        options: {
+          headers: { Authorization: decrypt(domain?.Cdn?.apiToken) },
+        },
       });
 
       const { series } = trafficReports.data?.charts?.traffics ?? {};
@@ -46,6 +50,9 @@ export const selectDomain = async () => {
             middleDomainDNSRecordName: true,
           },
         },
+        Cdn: {
+          select: { apiToken: true },
+        },
       },
     });
 
@@ -57,18 +64,22 @@ export const selectDomain = async () => {
 
       // do nothing if there were no selectable middle domain
       if (!selectableMiddleDomain) return;
+      if (!limitedRootDomain.Cdn?.apiToken) return;
 
       // update dns record
       const dnsRecords = await domainService.getDnsRecords({
         domain: limitedRootDomain.name,
+        options: {
+          headers: {
+            Authorization: decrypt(limitedRootDomain.Cdn?.apiToken),
+          },
+        },
       });
 
       const rootDomainDNSRecord = dnsRecords.data?.find(
         (record) =>
           record.type === "cname" && record.name === limitedRootDomain.subDomain
       );
-
-      console.log({ rootDomainDNSRecord });
 
       const host =
         selectableMiddleDomain.Balancer?.middleDomainDNSRecordName +
@@ -78,10 +89,15 @@ export const selectDomain = async () => {
       await domainService.updateDnsRecord({
         domain: limitedRootDomain?.name,
         dnsRecordId: rootDomainDNSRecord?.id as string,
-        body: {
+        data: {
           type: "cname",
           name: rootDomainDNSRecord?.name,
           value: { host_header: "source", host },
+        },
+        options: {
+          headers: {
+            Authorization: decrypt(limitedRootDomain.Cdn?.apiToken),
+          },
         },
       });
 

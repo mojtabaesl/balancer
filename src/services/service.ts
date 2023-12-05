@@ -1,6 +1,5 @@
 import { components, paths } from "../../@types/generated.js";
 import { env } from "../env.js";
-import { logCollector } from "./logCollector.js";
 
 interface DomainReportsQuery {
   period: "1h" | "3h" | "6h" | "12h" | "24h" | "7d" | "30d";
@@ -16,6 +15,7 @@ interface DomainGetReportsParams {
 
 interface GetDnsRecordsProps {
   domain: string;
+  options?: RequestInit;
 }
 
 type UpdateDnsRecordBody = components["schemas"]["DnsRecord"];
@@ -23,7 +23,8 @@ type UpdateDnsRecordBody = components["schemas"]["DnsRecord"];
 interface UpdateDnsRecordProps {
   domain: string;
   dnsRecordId: string;
-  body: UpdateDnsRecordBody;
+  data: UpdateDnsRecordBody;
+  options?: RequestInit;
 }
 
 type DomainGetReportsResult =
@@ -33,21 +34,14 @@ type GetDnsRecordsResults =
   paths["/domains/{domain}/dns-records"]["get"]["responses"]["200"]["content"]["application/json"];
 
 export class DomainService {
-  constructor(private apiUrl: string, private apiToken: string) {
+  constructor(private apiUrl: string) {
     this.apiUrl = apiUrl + "/domains";
-    this.apiToken = apiToken;
   }
 
   private async handleFetch(url: string, options?: RequestInit) {
     console.log("Network", { url });
     try {
-      const res = await fetch(url, {
-        ...options,
-        headers: {
-          Authorization: this.apiToken,
-          ...options?.headers,
-        },
-      });
+      const res = await fetch(url, options);
       return await res.json();
     } catch (error) {
       console.log(error);
@@ -63,32 +57,37 @@ export class DomainService {
       this.apiUrl +
       `/${domain}/reports/traffics?` +
       new URLSearchParams(params);
-    return await this.handleFetch(url, { ...options });
+    return await this.handleFetch(url, options);
   }
 
   async getDnsRecords({
     domain,
+    options,
   }: GetDnsRecordsProps): Promise<GetDnsRecordsResults> {
     const url = this.apiUrl + `/${domain}/dns-records`;
-    return await this.handleFetch(url);
+    return await this.handleFetch(url, options);
   }
 
   async updateDnsRecord({
     domain,
     dnsRecordId,
-    body,
+    data,
+    options,
   }: UpdateDnsRecordProps): Promise<GetDnsRecordsResults> {
     const url = this.apiUrl + `/${domain}/dns-records/${dnsRecordId}`;
+    const { headers, ...rest } = options ?? {};
     return await this.handleFetch(url, {
-      body: JSON.stringify(body),
+      ...rest,
+      body: JSON.stringify(data),
       method: "PUT",
       headers: {
         "content-type": "application/json",
+        ...headers,
       },
     });
   }
 }
 
-const domainService = new DomainService(env.ARVAN_URL, env.ARVAN_API_TOKEN);
+const domainService = new DomainService(env.ARVAN_URL);
 
 export { domainService };
