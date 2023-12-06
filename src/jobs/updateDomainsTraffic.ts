@@ -5,7 +5,10 @@ import { convertByteToGB, decrypt } from "../utils.js";
 export const updateDomainsTraffic = async () => {
   try {
     const domains = await prisma.middleDomain.findMany({
-      include: { Cdn: { select: { apiToken: true } } },
+      include: {
+        Cdn: { select: { apiToken: true } },
+        Balancer: { select: { middleDomainTrafficLimit: true } },
+      },
     });
 
     await domains.forEach(async (domain) => {
@@ -25,11 +28,20 @@ export const updateDomainsTraffic = async () => {
       );
       const todayTraffic = dailyTraffics?.data?.pop() ?? 0;
       const todayTrafficGB = convertByteToGB(todayTraffic);
+      const trafficLimit = domain.trafficLimit
+        ? domain.trafficLimit
+        : domain.Balancer?.middleDomainTrafficLimit;
+
+      console.log({
+        domain: domain.name,
+        trafficLimit,
+        isActive: trafficLimit ? todayTrafficGB < trafficLimit : true,
+      });
 
       await prisma.middleDomain.update({
         data: {
           traffic: todayTrafficGB,
-          isActive: todayTrafficGB < domain.trafficLimit,
+          isActive: trafficLimit ? todayTrafficGB < trafficLimit : true,
         },
         where: { name: domain.name },
       });
