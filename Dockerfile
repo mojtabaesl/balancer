@@ -14,5 +14,6 @@ WORKDIR /app
 COPY ./package.json ./package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=builder /app/dist /app/
+COPY --from=builder /app/node_modules/prisma  /app/node_modules/prisma
 EXPOSE 3333
 ENTRYPOINT [ "node","./main.js" ]
