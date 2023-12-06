@@ -6,7 +6,9 @@
   "main": "index.js",
   "scripts": {
     "run": "node --loader ts-node/esm ./src/main.ts",
-    "gen:types": "npx openapi-typescript ./cdn-4.0.yml -o ./@types/generated.d.ts"
+    "gen:types": "npx openapi-typescript ./cdn-4.0.yml -o ./@types/generated.d.ts",
+    "gen:prisma": "npx prisma generate",
+    "build": "npx tsc --build"
   },
   "author": "",
   "license": "ISC",
