@@ -24,7 +24,6 @@ model MiddleDomain {
   id           Int         @id @default(autoincrement())
   name         String      @unique
   isActive     Boolean     @default(true)
-  isSelected   Boolean     @default(false)
   trafficLimit Float       @default(0)
   traffic      Float       @default(0)
   Balancer     Balancer?   @relation(fields: [balancerId], references: [id])

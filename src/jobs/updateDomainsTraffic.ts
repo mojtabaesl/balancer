@@ -40,85 +40,101 @@ export const updateDomainsTraffic = async () => {
 };
 
 export const selectDomain = async () => {
-  try {
-    const limitedRootDomains = await prisma.rootDomain.findMany({
-      where: { value: { isActive: false } },
-      include: {
-        value: true,
-        Balancer: {
-          select: {
-            middleDomainDNSRecordName: true,
-          },
-        },
-        Cdn: {
-          select: { apiToken: true },
+  const limitedRootDomains = await prisma.rootDomain.findMany({
+    where: { value: { isActive: false } },
+    include: {
+      value: true,
+      Balancer: {
+        select: {
+          id: true,
+          middleDomainDNSRecordName: true,
         },
       },
-    });
+      Cdn: {
+        select: { apiToken: true },
+      },
+    },
+  });
 
-    limitedRootDomains.forEach(async (limitedRootDomain) => {
-      const selectableMiddleDomain = await prisma.middleDomain.findFirst({
-        where: { AND: { isActive: true, isSelected: false } },
-        include: { Balancer: { select: { middleDomainDNSRecordName: true } } },
-      });
+  const emptyRootDomains = await prisma.rootDomain.findMany({
+    where: { value: null },
+    include: {
+      value: true,
+      Balancer: {
+        select: {
+          id: true,
+          middleDomainDNSRecordName: true,
+        },
+      },
+      Cdn: {
+        select: { apiToken: true },
+      },
+    },
+  });
 
-      // do nothing if there were no selectable middle domain
-      if (!selectableMiddleDomain) return;
-      if (!limitedRootDomain.Cdn?.apiToken) return;
-
-      // update dns record
-      const dnsRecords = await domainService.getDnsRecords({
-        domain: limitedRootDomain.name,
-        options: {
-          headers: {
-            Authorization: decrypt(limitedRootDomain.Cdn?.apiToken),
+  [...limitedRootDomains, ...emptyRootDomains].forEach(
+    async (limitedRootDomain) => {
+      try {
+        const selectableMiddleDomain = await prisma.middleDomain.findFirst({
+          where: {
+            AND: {
+              isActive: true,
+              RootDomain: null,
+              balancerId: limitedRootDomain.Balancer?.id,
+            },
           },
-        },
-      });
-
-      const rootDomainDNSRecord = dnsRecords.data?.find(
-        (record) =>
-          record.type === "cname" && record.name === limitedRootDomain.subDomain
-      );
-
-      const host =
-        selectableMiddleDomain.Balancer?.middleDomainDNSRecordName +
-        "." +
-        selectableMiddleDomain.name;
-
-      await domainService.updateDnsRecord({
-        domain: limitedRootDomain?.name,
-        dnsRecordId: rootDomainDNSRecord?.id as string,
-        data: {
-          type: "cname",
-          name: rootDomainDNSRecord?.name,
-          value: { host_header: "source", host },
-        },
-        options: {
-          headers: {
-            Authorization: decrypt(limitedRootDomain.Cdn?.apiToken),
+          include: {
+            Balancer: { select: { middleDomainDNSRecordName: true } },
           },
-        },
-      });
+        });
 
-      // set new middle domain as selected
-      await prisma.middleDomain.update({
-        where: { id: selectableMiddleDomain?.id },
-        data: { isSelected: true },
-      });
+        // do nothing if there were no selectable middle domain
+        if (!selectableMiddleDomain) return;
+        if (!limitedRootDomain.Cdn?.apiToken) return;
 
-      // set previous middle domain as unselected
-      await prisma.middleDomain.update({
-        where: { id: limitedRootDomain.value?.id },
-        data: { isSelected: false },
-      });
+        // update dns record
+        const dnsRecords = await domainService.getDnsRecords({
+          domain: limitedRootDomain.name,
+          options: {
+            headers: {
+              Authorization: decrypt(limitedRootDomain.Cdn?.apiToken),
+            },
+          },
+        });
 
-      await prisma.rootDomain.update({
-        where: { id: limitedRootDomain.id },
-        data: { value: { connect: { id: selectableMiddleDomain?.id } } },
-      });
-    });
-  } catch (error) {
-    console.log(error);
-  }
+        const rootDomainDNSRecord = dnsRecords.data?.find(
+          (record) =>
+            record.type === "cname" &&
+            record.name === limitedRootDomain.subDomain
+        );
+
+        const host =
+          selectableMiddleDomain.Balancer?.middleDomainDNSRecordName +
+          "." +
+          selectableMiddleDomain.name;
+
+        await domainService.updateDnsRecord({
+          domain: limitedRootDomain?.name,
+          dnsRecordId: rootDomainDNSRecord?.id as string,
+          data: {
+            type: "cname",
+            name: rootDomainDNSRecord?.name,
+            value: { host_header: "source", host },
+          },
+          options: {
+            headers: {
+              Authorization: decrypt(limitedRootDomain.Cdn?.apiToken),
+            },
+          },
+        });
+
+        await prisma.rootDomain.update({
+          where: { id: limitedRootDomain.id },
+          data: { value: { connect: { id: selectableMiddleDomain?.id } } },
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  );
 };
