@@ -6,13 +6,16 @@ export const updateDomainsTraffic = async () => {
   try {
     const domains = await prisma.middleDomain.findMany({
       include: {
-        Cdn: { select: { apiToken: true } },
+        Cdn: { select: { apiToken: true, name: true } },
         Balancer: { select: { middleDomainTrafficLimit: true } },
       },
     });
 
     await domains.forEach(async (domain) => {
-      if (!domain?.Cdn?.apiToken) return;
+      if (!domain?.Cdn?.apiToken) {
+        console.log("Please set API token", " CDN: ", domain.Cdn?.name);
+        return;
+      }
 
       const trafficReports = await domainService.getReports({
         domain: domain.name,
@@ -32,16 +35,25 @@ export const updateDomainsTraffic = async () => {
         ? domain.trafficLimit
         : domain.Balancer?.middleDomainTrafficLimit;
 
-      console.log({
-        domain: domain.name,
-        trafficLimit,
-        isActive: trafficLimit ? todayTrafficGB < trafficLimit : true,
-      });
+      const isActive = trafficLimit ? todayTrafficGB < trafficLimit : true;
+
+      if (!isActive) {
+        console.log(
+          new Date().toLocaleString(),
+          "Traffic",
+          " Deactivated: ",
+          domain.name,
+          " TrafficLimit: ",
+          trafficLimit,
+          " TodayTraffic: ",
+          todayTrafficGB
+        );
+      }
 
       await prisma.middleDomain.update({
         data: {
           traffic: todayTrafficGB,
-          isActive: trafficLimit ? todayTrafficGB < trafficLimit : true,
+          isActive,
         },
         where: { name: domain.name },
       });
@@ -86,6 +98,15 @@ export const selectDomain = async () => {
 
   [...limitedRootDomains, ...emptyRootDomains].forEach(
     async (limitedRootDomain) => {
+      if (!limitedRootDomain.Cdn?.apiToken) return;
+
+      console.log(
+        new Date().toLocaleString(),
+        " SelectDomain ",
+        " LimitedRootDomain: ",
+        limitedRootDomain.name
+      );
+
       try {
         const selectableMiddleDomain = await prisma.middleDomain.findFirst({
           where: {
@@ -102,7 +123,13 @@ export const selectDomain = async () => {
 
         // do nothing if there were no selectable middle domain
         if (!selectableMiddleDomain) return;
-        if (!limitedRootDomain.Cdn?.apiToken) return;
+
+        console.log(
+          new Date().toLocaleString(),
+          " SelectDomain ",
+          " selectableMiddleDomain: ",
+          selectableMiddleDomain.name
+        );
 
         // update dns record
         const dnsRecords = await domainService.getDnsRecords({
@@ -144,6 +171,15 @@ export const selectDomain = async () => {
           where: { id: limitedRootDomain.id },
           data: { value: { connect: { id: selectableMiddleDomain?.id } } },
         });
+
+        console.log(
+          new Date().toLocaleString(),
+          " SelectDomain ",
+          " RootDomainDnsUpdated: ",
+          limitedRootDomain.name,
+          " Value: ",
+          host
+        );
       } catch (err) {
         console.error(err);
       }

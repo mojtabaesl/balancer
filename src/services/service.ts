@@ -39,12 +39,12 @@ export class DomainService {
   }
 
   private async handleFetch(url: string, options?: RequestInit) {
-    console.log("Network", { url });
+    // console.log("Network", { url });
     try {
       const res = await fetch(url, options);
       return await res.json();
     } catch (error) {
-      console.log(error);
+      console.log("Network: ", error);
     }
   }
 

@@ -5,10 +5,11 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "run": "node --loader ts-node/esm ./src/main.ts",
+    "dev:run": "node --loader ts-node/esm ./src/main.ts",
     "gen:types": "npx openapi-typescript ./cdn-4.0.yml -o ./@types/generated.d.ts",
     "gen:prisma": "npx prisma generate",
-    "build": "npx tsc --build"
+    "build": "npx tsc --build",
+    "start": "node ./main.js"
   },
   "author": "",
   "license": "ISC",

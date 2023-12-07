@@ -12,8 +12,8 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 COPY ./package.json ./package-lock.json ./
-RUN npm ci --omit=dev
+COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/dist /app/
-COPY --from=builder /app/node_modules/prisma  /app/node_modules/prisma
+COPY --from=builder /app/prisma /app/prisma
 EXPOSE 3333
-ENTRYPOINT [ "node","./main.js" ]
+ENTRYPOINT [ "npm","start" ]

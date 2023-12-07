@@ -1,5 +1,8 @@
 {
   "yaml.schemas": {
-    "https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json": "file:///home/mojtaba/mountpoint/code/vpn/balancer/compose-prod.yml"
+    "https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json": [
+      "file:///home/mojtaba/mountpoint/code/vpn/balancer/compose-prod.yml",
+      "file:///home/mojtaba/mountpoint/code/vpn/balancer/compose-dev.yml"
+    ]
   }
 }
