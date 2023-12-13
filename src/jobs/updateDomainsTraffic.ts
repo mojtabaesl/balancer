@@ -37,19 +37,6 @@ export const updateDomainsTraffic = async () => {
 
       const isActive = trafficLimit ? todayTrafficGB < trafficLimit : true;
 
-      if (!isActive) {
-        console.log(
-          new Date().toLocaleString(),
-          "Traffic",
-          " Deactivated: ",
-          domain.name,
-          " TrafficLimit: ",
-          trafficLimit,
-          " TodayTraffic: ",
-          todayTrafficGB
-        );
-      }
-
       await prisma.middleDomain.update({
         data: {
           traffic: todayTrafficGB,
@@ -104,7 +91,7 @@ export const selectDomain = async () => {
         new Date().toLocaleString(),
         " SelectDomain ",
         " LimitedRootDomain: ",
-        limitedRootDomain.name
+        limitedRootDomain.subDomain + "." + limitedRootDomain.name
       );
 
       try {
@@ -156,9 +143,17 @@ export const selectDomain = async () => {
           domain: limitedRootDomain?.name,
           dnsRecordId: rootDomainDNSRecord?.id as string,
           data: {
-            type: "cname",
+            value: { port: -1, host_header: "source", host },
             name: rootDomainDNSRecord?.name,
-            value: { host_header: "source", host },
+            upstream_https: "default",
+            cloud: false,
+            ttl: 120,
+            type: "cname",
+            ip_filter_mode: {
+              count: "single",
+              order: "none",
+              geo_filter: "none",
+            },
           },
           options: {
             headers: {
